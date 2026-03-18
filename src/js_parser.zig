@@ -1039,8 +1039,8 @@ pub fn newLazyExportASTImpl(
     };
 
     temp_log.appendToMaybeRecycled(log_to_copy_into, source) catch {};
-    result.ast.has_lazy_export = true;
-    return result.ast;
+    result.ast.ast.has_lazy_export = true;
+    return result.ast.ast;
 }
 
 pub const WrapMode = enum {

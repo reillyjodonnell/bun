@@ -144,6 +144,7 @@ fn NewLexer_(
         string_literal_start: usize = 0,
         string_literal_raw_format: enum { ascii, utf16, needs_decode } = .ascii,
         temp_buffer_u16: std.array_list.Managed(u16),
+        trivia_builder: std.array_list.Managed(CommentMod.Comment),
 
         /// Only used for JSON stringification when bundling
         /// This is a zero-bit type unless we're parsing JSON.
@@ -1867,6 +1868,20 @@ fn NewLexer_(
             const has_legal_annotation = text.len > 2 and text[2] == '!';
             const is_multiline_comment = text.len > 1 and text[1] == '*';
 
+            const comment: CommentMod.Comment = .{
+                .span = .{
+                    .start = @intCast(lexer.start),
+                    .end = @intCast(lexer.end),
+                },
+                .kind = CommentMod.Kind.line,
+                .spacing = CommentMod.NewlineSpacing.before,
+                .attached_to = 9,
+                .position = CommentMod.Position.leading,
+            };
+
+            std.debug.print("Adding comment\n", .{});
+            lexer.trivia_builder.append(comment) catch unreachable;
+
             if (lexer.track_comments)
                 // Save the original comment text so we can subtract comments from the
                 // character frequency analysis used by symbol minification
@@ -2041,6 +2056,7 @@ fn NewLexer_(
                 .allocator = allocator,
                 .comments_to_preserve_before = std.array_list.Managed(js_ast.G.Comment).init(allocator),
                 .all_comments = std.array_list.Managed(logger.Range).init(allocator),
+                .trivia_builder = std.array_list.Managed(CommentMod.Comment).init(allocator),
             };
             lex.step();
             try lex.next();
@@ -2057,6 +2073,7 @@ fn NewLexer_(
                 .allocator = allocator,
                 .comments_to_preserve_before = std.array_list.Managed(js_ast.G.Comment).init(allocator),
                 .all_comments = std.array_list.Managed(logger.Range).init(allocator),
+                .trivia_builder = std.array_list.Managed(CommentMod.Comment).init(allocator),
             };
         }
 
@@ -3386,6 +3403,8 @@ const string = []const u8;
 const FeatureFlags = @import("./feature_flags.zig");
 const JSIdentifier = @import("./js_lexer/identifier.zig");
 const tables = @import("./js_lexer_tables.zig");
+
+const CommentMod = @import("./comment.zig");
 
 const bun = @import("bun");
 const CodePoint = bun.CodePoint;

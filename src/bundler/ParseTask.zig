@@ -327,7 +327,7 @@ fn getAST(
                 log,
                 source,
             )) |res|
-                JSAst.init(res.ast)
+                JSAst.init(res.ast.ast)
             else switch (opts.module_type == .esm) {
                 inline else => |as_undefined| try getEmptyAST(
                     log,

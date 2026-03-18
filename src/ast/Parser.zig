@@ -241,7 +241,12 @@ pub const Parser = struct {
             }
             break :brk .none;
         };
-        return .{ .ast = try p.toAST(&parts, exports_kind, .none, "") };
+        return .{
+            .ast = .{
+                .ast = try p.toAST(&parts, exports_kind, .none, ""),
+                .comments = p.lexer.trivia_builder.items,
+            },
+        };
     }
 
     pub fn parse(self: *Parser) !js_ast.Result {
@@ -262,82 +267,15 @@ pub const Parser = struct {
         }
     }
 
-    pub fn analyze(self: *Parser, context: *anyopaque, callback: *const fn (*anyopaque, *TSXParser, []js_ast.Part) anyerror!void) anyerror!void {
-        var p: TSXParser = undefined;
-        try TSXParser.init(self.allocator, self.log, self.source, self.define, self.lexer, self.options, &p);
-
-        defer p.lexer.deinit();
-
-        // Consume a leading hashbang comment
-        var hashbang: string = "";
-        if (p.lexer.token == .t_hashbang) {
-            hashbang = p.lexer.identifier;
-            try p.lexer.next();
-        }
-
-        // Parse the file in the first pass, but do not bind symbols
-        var opts = ParseStatementOptions{ .is_module_scope = true };
-        const parse_tracer = bun.perf.trace("JSParser.parse");
-
-        const stmts = p.parseStmtsUpTo(js_lexer.T.t_end_of_file, &opts) catch |err| {
-            if (comptime Environment.isWasm) {
-                Output.print("JSParser.parse: caught error {s} at location: {d}\n", .{ @errorName(err), p.lexer.loc().start });
-                p.log.print(Output.writer()) catch {};
-            }
-            return err;
-        };
-
-        parse_tracer.end();
-
-        if (self.log.errors > 0) {
-            if (comptime Environment.isWasm) {
-                // If the logger is backed by console.log, every print appends a newline.
-                // so buffering is kind of mandatory here
-                const fakeWriter = struct {
-                    fn writeAll(_: @This(), data: []const u8) anyerror!usize {
-                        if (data.len == 0) return 0;
-
-                        Output.print("{s}", .{data});
-                        return data.len;
-                    }
-                };
-                const writer = std.Io.GenericWriter(fakeWriter, anyerror, fakeWriter.writeAll){
-                    .context = fakeWriter{},
-                };
-                var buffered_writer = bun.deprecated.bufferedWriter(writer);
-                const actual = buffered_writer.writer();
-                for (self.log.msgs.items) |msg| {
-                    var m: logger.Msg = msg;
-                    m.writeFormat(actual, true) catch {};
-                }
-                buffered_writer.flush() catch {};
-            }
-            return error.SyntaxError;
-        }
-
-        const visit_tracer = bun.perf.trace("JSParser.visit");
-        try p.prepareForVisitPass();
-
-        var parts = ListManaged(js_ast.Part).init(p.allocator);
-        defer parts.deinit();
-
-        try p.appendPart(&parts, stmts);
-        visit_tracer.end();
-
-        const analyze_tracer = bun.perf.trace("JSParser.analyze");
-        try callback(context, &p, parts.items);
-        analyze_tracer.end();
-    }
-
     fn _parse(noalias self: *Parser, comptime ParserType: type) !js_ast.Result {
         const prev_action = bun.crash_handler.current_action;
         defer bun.crash_handler.current_action = prev_action;
         bun.crash_handler.current_action = .{ .parse = self.source.path.text };
 
         var p: ParserType = undefined;
+        p.lexer.track_comments = true;
         const orig_error_count = self.log.errors;
         try ParserType.init(self.allocator, self.log, self.source, self.define, self.lexer, self.options, &p);
-
         if (p.options.features.hot_module_reloading) {
             bun.assert(!p.options.tree_shaking);
         }
@@ -448,6 +386,7 @@ pub const Parser = struct {
         var before = ListManaged(js_ast.Part).init(p.allocator);
         var after = ListManaged(js_ast.Part).init(p.allocator);
         var parts = ListManaged(js_ast.Part).init(p.allocator);
+
         defer {
             after.deinit();
             before.deinit();
@@ -872,14 +811,15 @@ pub const Parser = struct {
                                 };
                                 if (redirect_import_record_index) |id| {
                                     part.symbol_uses = .{};
-                                    return js_ast.Result{
+                                    return js_ast.Result{ .ast = .{
                                         .ast = js_ast.Ast{
                                             .import_records = ImportRecord.List.moveFromList(&p.import_records),
                                             .redirect_import_record_index = id,
                                             .named_imports = p.named_imports,
                                             .named_exports = p.named_exports,
                                         },
-                                    };
+                                        .comments = p.lexer.trivia_builder.items,
+                                    } };
                                 }
                             }
                         }
@@ -1488,8 +1428,12 @@ pub const Parser = struct {
                 }
             }
         }
-
-        return js_ast.Result{ .ast = try p.toAST(&parts, exports_kind, wrap_mode, hashbang) };
+        return js_ast.Result{
+            .ast = .{
+                .ast = try p.toAST(&parts, exports_kind, wrap_mode, hashbang),
+                .comments = p.lexer.trivia_builder.items,
+            },
+        };
     }
 
     pub fn init(_options: Options, log: *logger.Log, source: *const logger.Source, define: *Define, allocator: Allocator) !Parser {
@@ -1625,3 +1569,5 @@ const std = @import("std");
 const List = std.ArrayListUnmanaged;
 const Allocator = std.mem.Allocator;
 const ListManaged = std.array_list.Managed;
+
+const Comment = @import("../comment.zig").Comment;

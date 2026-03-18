@@ -540,7 +540,10 @@ pub const Part = struct {
 pub const Result = union(enum) {
     already_bundled: AlreadyBundled,
     cached: void,
-    ast: Ast,
+    ast: struct {
+        ast: Ast,
+        comments: []const Comment,
+    },
 
     pub const AlreadyBundled = enum {
         bun,
@@ -662,6 +665,7 @@ pub fn NewBatcher(comptime Type: type) type {
         }
     };
 }
+pub const Comments = @import("./comment.zig").Comment;
 
 pub const ASTMemoryAllocator = @import("./ast/ASTMemoryAllocator.zig");
 pub const Ast = @import("./ast/Ast.zig");
@@ -683,6 +687,7 @@ pub const Symbol = @import("./ast/Symbol.zig");
 pub const B = @import("./ast/B.zig").B;
 pub const NewStore = @import("./ast/NewStore.zig").NewStore;
 pub const UseDirective = @import("./ast/UseDirective.zig").UseDirective;
+const Comment = @import("./comment.zig").Comment;
 
 pub const CharFreq = @import("./ast/CharFreq.zig");
 const char_freq_count = CharFreq.char_freq_count;

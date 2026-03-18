@@ -344,10 +344,10 @@ pub fn loadConfig(allocator: std.mem.Allocator, user_config_path_: ?string, ctx:
     if (config_path_.len == 0 and (user_config_path_ != null or
         Command.Tag.always_loads_config.get(cmd) or
         (cmd == .AutoCommand and
-            // "bun"
-            (ctx.positionals.len == 0 or
-                // "bun file.js"
-                ctx.positionals.len > 0 and options.defaultLoaders.has(std.fs.path.extension(ctx.positionals[0]))))))
+        // "bun"
+        (ctx.positionals.len == 0 or
+        // "bun file.js"
+        ctx.positionals.len > 0 and options.defaultLoaders.has(std.fs.path.extension(ctx.positionals[0]))))))
     {
         config_path_ = "bunfig.toml";
         auto_loaded = true;
@@ -1475,6 +1475,17 @@ pub fn parse(allocator: std.mem.Allocator, ctx: Command.Context, comptime cmd: C
                 ) or strings.eqlComptime(
                     entry_points[0],
                     "r",
+                ))) {
+                    entry_points = entry_points[1..];
+                }
+            },
+            .FormatCommand => {
+                if (entry_points.len > 0 and (strings.eqlComptime(
+                    entry_points[0],
+                    "fmt",
+                ) or strings.eqlComptime(
+                    entry_points[0],
+                    "f",
                 ))) {
                     entry_points = entry_points[1..];
                 }

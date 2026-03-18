@@ -1546,13 +1546,13 @@ fn transformForRepl(self: *Repl, code: []const u8) ?[]const u8 {
     defer buffer_printer.ctx.buffer.deinit();
 
     // Create symbol map from ast.symbols
-    const symbols_nested = bun.ast.Symbol.NestedList.fromBorrowedSliceDangerous(&.{ast.symbols});
+    const symbols_nested = bun.ast.Symbol.NestedList.fromBorrowedSliceDangerous(&.{ast.ast.symbols});
     const symbols_map = bun.ast.Symbol.Map.initList(symbols_nested);
 
     _ = js_printer.printAst(
         @TypeOf(&buffer_printer),
         &buffer_printer,
-        ast,
+        ast.ast,
         symbols_map,
         &source,
         true, // ascii_only

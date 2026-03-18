@@ -93,7 +93,7 @@ pub const InitCommand = @import("./cli/init_command.zig").InitCommand;
 pub const WhyCommand = @import("./cli/why_command.zig").WhyCommand;
 pub const FuzzilliCommand = @import("./cli/fuzzilli_command.zig").FuzzilliCommand;
 pub const ReplCommand = @import("./cli/repl_command.zig").ReplCommand;
-
+pub const FormatCommand = @import("cli/format_command.zig").FormatCommand;
 pub const Arguments = @import("./cli/Arguments.zig");
 
 const AutoCommand = struct {
@@ -646,6 +646,7 @@ pub const Command = struct {
             RootCommandMatcher.case("prune") => .ReservedCommand,
             RootCommandMatcher.case("list") => .PackageManagerCommand,
             RootCommandMatcher.case("why") => .WhyCommand,
+            RootCommandMatcher.case("fmt") => .FormatCommand,
             RootCommandMatcher.case("fuzzilli") => if (bun.Environment.enable_fuzzilli)
                 .FuzzilliCommand
             else
@@ -994,6 +995,11 @@ pub const Command = struct {
                     return error.UnrecognizedCommand;
                 }
             },
+            .FormatCommand => {
+                const ctx = try Command.init(allocator, log, .FormatCommand);
+                try FormatCommand.exec(ctx);
+                return;
+            },
         }
     }
 
@@ -1004,6 +1010,7 @@ pub const Command = struct {
         BunxCommand,
         CreateCommand,
         DiscordCommand,
+        FormatCommand,
         GetCompletionsCommand,
         HelpCommand,
         InitCommand,
@@ -1042,6 +1049,7 @@ pub const Command = struct {
                 .BunxCommand => 'B',
                 .CreateCommand => 'c',
                 .DiscordCommand => 'D',
+                .FormatCommand => 'F',
                 .GetCompletionsCommand => 'g',
                 .HelpCommand => 'h',
                 .InitCommand => 'j',
@@ -1702,7 +1710,7 @@ pub const Command = struct {
 
         const use_bunx = !HardcodedNonBunXList.has(template_name) and
             (!strings.containsComptime(template_name, "/") or
-                strings.startsWithChar(template_name, '@')) and
+            strings.startsWithChar(template_name, '@')) and
             example_tag != CreateCommandExample.Tag.local_folder;
 
         if (use_bunx) {

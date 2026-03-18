@@ -1162,7 +1162,7 @@ pub const Transpiler = struct {
                     source,
                 ) catch null) orelse return null) {
                     .ast => |value| .{
-                        .ast = value,
+                        .ast = value.ast,
                         .source = source.*,
                         .loader = loader,
                         .input_fd = input_fd,
